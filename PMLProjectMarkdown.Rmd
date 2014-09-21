@@ -1,0 +1,79 @@
+Practical Machine Learning Project
+========================================================
+```{r, echo=FALSE}
+library(caret); library(rpart); library(rpart.plot); library(rattle); library(randomForest)
+```
+
+###Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+###The Data
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv  
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har  
+
+
+###Loading and processing the Data  
+We first load the training and testing files into R and take a glance at the data.
+```{r, echo=FALSE}
+
+training = read.csv("./data/pml-training.csv", na.strings = c("NA", ""))
+Ptesting = read.csv("./data/pml-testing.csv", na.strings = c("NA", ""))
+
+```  
+After looking at the data we notice that a lot of variables have a large amount of or consist entirely of 'NA' values.  We also notice that several of the variables have nothing to do with the movement we are interested in. So, we take steps to remove all the variables with mostly NA's and remove the first 7 variables, as they have no relation to movement.
+
+Once that is done we split the processed data into two parts to begin some analysis.
+```{r}
+trainingRNA <- training[ , colSums(is.na(training)) == 0]
+Final.training <- trainingRNA[,-c(1:7)]
+
+inTrain <- createDataPartition(Final.training$classe, p=0.7, list = FALSE)
+train <- Final.training[inTrain,]
+test <- Final.training[-inTrain,]
+```
+  
+###The R-Part Model  
+To start our analysis we set a seed and fit the training data to an R-part model using the train function in the caret package.  We then create a initial plot to see how the model looks.  As well as take a glance at the model. We expect the out of sample error to be less than 0.05%.
+
+```{r}
+set.seed(505)
+model.Rpart <- train(classe ~., method ='rpart', data = train)
+fancyRpartPlot(model.Rpart$finalModel)
+model.Rpart
+```  
+  
+Next we predict the values of the test set using our model, using the predict function.  We also test the prediction against the correct test values using the confusionMatrix function.
+```{r}
+pred.Rpart <- predict(model.Rpart, test)
+confusionMatrix(pred.Rpart, test$classe)
+```
+As we can see from the confusion matrix we have a fairly low accuracy rate with this model and our error rate expectation was off.  Thus, we decide to try another approach to a model.
+
+###The Random Forest Model
+We start our analysis the same way, we set a seed and fit the training data to an random forest model using the randomForest function in the randomForest package. We use 100 tree snd 30 replications in the model. This time we expect our OOB estimate to be <= 0.10
+```{r}
+set.seed(506)
+model.Rforest <- randomForest(classe~., mtry = 30, ntree =100, keep.forest = TRUE, importance = TRUE, proximity = TRUE, data = train)
+model.Rforest
+```
+Our OOB estimate of error rate is at 0.75% which is good with our expectations.  Next we predic the test set values using our random forest model and run a confusion Matrix to see how it compares.
+
+
+```{r}
+pred.Rforest <- predict(model.Rforest, test)
+confusionMatrix(pred.Rforest, test$classe)
+```
+Our Random Forest model has a very high accuracy, .9946 which is much improved on our R-part model.
+
+###Final Results
+Finally, we run the model to predict the last 30 test cases for the submission part of the project.
+
+```{r}
+pred.Final <- predict(model.Rforest, Ptesting)
+pred.Final
+```
+
+Our model correctly predicts the test cases.
